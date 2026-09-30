@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>頼る力</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --text: #1f2933;
+    --sub: #6b7280;
+    --accent: #1f6feb;
+    --accent-soft: #e8f0fe;
+    --line: #e5e7eb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #2b2f36; }
+  body {
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+    color: var(--text);
+    overflow: hidden;
+  }
+
+  /* 1600×900 の画面を、ウィンドウの大きさに合わせて拡大縮小する */
+  .stage {
+    position: absolute; top: 50%; left: 50%;
+    width: 1600px; height: 900px;
+    transform-origin: center center;
+  }
+  .slide {
+    display: none;
+    width: 1600px; height: 900px;
+    background: var(--bg);
+    padding: 90px 120px;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .slide.active { display: flex; }
+
+  /* ページ番号 */
+  .slide::after {
+    content: attr(data-no);
+    position: absolute; right: 48px; bottom: 32px;
+    font-size: 22px; color: var(--sub); z-index: 3;
+  }
+
+  h1 { font-size: 64px; line-height: 1.35; font-weight: 800; }
+  h2 { font-size: 52px; line-height: 1.4; font-weight: 800; margin-bottom: 48px; }
+  p { font-size: 40px; line-height: 1.6; }
+  .sub { color: var(--sub); }
+  .accent { color: var(--accent); }
+
+  /* ── 表紙：左に題名、右に絵 ── */
+  .cover { flex-direction: row; align-items: center; padding: 60px 60px 60px 120px; gap: 20px; }
+  .cover-text { flex: none; width: 520px; }
+  .cover-text h1 { font-size: 110px; line-height: 1.2; }
+  .cover-text h1::after {
+    content: ""; display: block; width: 120px; height: 8px;
+    background: var(--accent); margin-top: 32px; border-radius: 4px;
+  }
+  .cover img { flex: 1; min-width: 0; max-height: 780px; object-fit: contain; mix-blend-mode: multiply; }
+
+  /* ── 開始前の待機スライド ── */
+  .waiting { padding: 64px 110px 50px; background: linear-gradient(160deg, #f5f9ff 0%, #ffffff 60%); }
+  .waiting .w-lead { font-size: 28px; color: var(--accent); font-weight: 700; letter-spacing: .1em; }
+  .waiting h2 { font-size: 56px; margin: 6px 0 36px; }
+  .asks { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 36px; }
+  .ask {
+    display: flex; align-items: center; gap: 28px;
+    background: #fff; border: 3px solid var(--line); border-radius: 20px;
+    padding: 26px 32px; height: 190px;
+  }
+  .ask .ico {
+    flex: none; width: 100px; height: 100px; border-radius: 50%;
+    background: var(--accent-soft); font-size: 54px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ask .t { font-size: 36px; font-weight: 800; line-height: 1.35; }
+  .ask .d { font-size: 24px; color: var(--sub); margin-top: 8px; line-height: 1.4; }
+
+  .bgm {
+    margin-top: 34px; align-self: center;
+    display: flex; align-items: center; gap: 14px;
+    background: #fff; border: 2px solid var(--line); border-radius: 999px;
+    padding: 12px 24px; box-shadow: 0 6px 20px rgba(31,111,235,.10);
+  }
+  .bgm button {
+    font: inherit; font-size: 22px; cursor: pointer;
+    border: 2px solid var(--line); background: #fff; color: var(--text);
+    border-radius: 999px; padding: 6px 18px;
+  }
+  .bgm .bgm-label { font-size: 22px; font-weight: 800; color: var(--accent); margin-right: 4px; }
+  .bgm .trk.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .bgm .play { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; min-width: 130px; }
+  .bgm .vol { display: flex; align-items: center; gap: 8px; margin-left: 10px; }
+  .bgm .vol button { width: 44px; padding: 4px 0; }
+  .bgm input[type=range] { width: 240px; accent-color: var(--accent); }
+  .bgm #volNum { font-size: 22px; width: 60px; text-align: right; font-variant-numeric: tabular-nums; }
+  .bgm-credit { position: absolute; left: 48px; bottom: 30px; font-size: 18px; color: var(--sub); }
+
+  /* ── 講師プロフィール：左に写真（顔が切れないよう全体を表示）、右に経歴 ── */
+  .profile { flex-direction: row; align-items: center; gap: 70px; padding: 60px 100px; }
+  .profile .photos { position: relative; width: 760px; height: 780px; flex: none; }
+  .profile .photos .main {
+    position: absolute; left: 0; top: 0; height: 780px; width: auto;
+    object-fit: contain; border-radius: 16px;
+  }
+  .profile .bar {
+    position: absolute; right: 0; bottom: 0; width: 300px;
+    background: #fff; padding: 14px 14px 10px; border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.25); transform: rotate(3deg);
+  }
+  .profile .bar img { width: 100%; height: 440px; object-fit: cover; object-position: center 35%; border-radius: 4px; display: block; }
+  .profile .bar figcaption { font-size: 24px; text-align: center; padding-top: 8px; color: var(--sub); }
+  .profile .role { font-size: 34px; color: var(--accent); font-weight: 700; }
+  .profile .name { font-size: 88px; font-weight: 800; line-height: 1.3; margin-bottom: 40px; }
+  .profile ul { list-style: none; }
+  .profile li { font-size: 42px; line-height: 1.5; padding: 14px 0 14px 40px; position: relative; }
+  .profile li::before {
+    content: ""; position: absolute; left: 4px; top: 36px;
+    width: 14px; height: 14px; border-radius: 50%; background: var(--accent);
+  }
+  .profile strong { color: var(--accent); font-size: 52px; }
+
+  /* ── 著書：書影を2段に並べる ── */
+  /* 左に大きく2冊（新刊・いちばん人気）、右に残り11冊。左右は余白をしっかりあける */
+  .books { padding: 56px 130px 70px; }
+  .books h2 { text-align: center; margin-bottom: 36px; }
+  .book-layout { flex: 1; display: flex; align-items: center; justify-content: center; gap: 70px; }
+  .featured { display: flex; gap: 36px; }
+  .featured figure { position: relative; }
+  .featured img { height: 560px; width: auto; display: block; box-shadow: 0 14px 34px rgba(0,0,0,.22); }
+  .featured .badge {
+    position: absolute; top: -18px; left: -14px; z-index: 1;
+    background: var(--accent); color: #fff; font-size: 26px; font-weight: 800;
+    padding: 8px 22px; border-radius: 999px; box-shadow: 0 4px 12px rgba(0,0,0,.2);
+  }
+  .featured .badge.best { background: #f59e0b; }
+  .others { display: grid; grid-template-columns: repeat(4, 112px); gap: 18px 16px; }
+  .others img { width: 112px; height: auto; display: block; box-shadow: 0 5px 12px rgba(0,0,0,.16); }
+
+  /* ── 写真を全面に敷くスライド ── */
+  .full { padding: 100px 120px; justify-content: flex-end; color: #fff; }
+  .full > img, .section > img {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;
+  }
+  .full::before {
+    content: ""; position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(to top, rgba(0,0,0,.72) 0%, rgba(0,0,0,.35) 45%, rgba(0,0,0,.05) 100%);
+  }
+  .full > *:not(img), .section > *:not(img) { position: relative; z-index: 2; }
+  .full .msg { font-size: 84px; line-height: 1.35; font-weight: 800; text-shadow: 0 2px 16px rgba(0,0,0,.35); }
+  .full .small { font-size: 36px; margin-bottom: 16px; opacity: .9; }
+  .full .after { font-size: 40px; margin-top: 28px; opacity: .95; }
+  .full.center { justify-content: center; align-items: center; text-align: center; }
+  .full.center::before { background: rgba(0,0,0,.5); }
+  .full::after, .section::after { color: rgba(255,255,255,.75); }
+
+  /* 明るい写真の上に濃い文字を置く版 */
+  .full.light { color: var(--text); justify-content: flex-start; }
+  .full.light::before { background: linear-gradient(to bottom, rgba(255,255,255,.85) 0%, rgba(255,255,255,0) 55%); }
+  .full.light .msg { text-shadow: none; }
+  .full.light::after { color: var(--sub); }
+
+  /* ── 章の区切り：写真＋青 ── */
+  .section { justify-content: center; color: #fff; }
+  .section::before {
+    content: ""; position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(90deg, rgba(31,111,235,.95) 0%, rgba(31,111,235,.85) 50%, rgba(31,111,235,.35) 100%);
+  }
+  .section .label { font-size: 36px; opacity: .85; margin-bottom: 16px; font-weight: 700; }
+  .section h1 { font-size: 96px; line-height: 1.3; }
+
+  /* ── 左に写真、右にひと言 ── */
+  .split { flex-direction: row; padding: 0; }
+  .split > img { width: 56%; height: 100%; object-fit: cover; flex: none; }
+  .split .txt { flex: 1; padding: 80px 72px; display: flex; flex-direction: column; justify-content: center; }
+  .split .tag {
+    align-self: flex-start;
+    font-size: 30px; font-weight: 800; color: #fff; background: var(--accent);
+    padding: 8px 26px; border-radius: 999px; margin-bottom: 36px;
+  }
+  .split .msg { font-size: 68px; line-height: 1.4; font-weight: 800; }
+  .split .note { font-size: 34px; color: var(--sub); margin-top: 32px; line-height: 1.6; }
+  .split.rev { flex-direction: row-reverse; }
+
+  /* ── 写真2枚で比べる ── */
+  .compare { display: flex; gap: 48px; flex: 1; min-height: 0; }
+  .compare figure {
+    flex: 1; display: flex; flex-direction: column; border-radius: 20px; overflow: hidden;
+    border: 4px solid var(--line);
+  }
+  .compare img { width: 100%; flex: 1; min-height: 0; object-fit: cover; }
+  .compare figcaption { font-size: 46px; font-weight: 800; text-align: center; padding: 24px 0; }
+  .compare figure.good { border-color: var(--accent); }
+  .compare figure.good figcaption { background: var(--accent); color: #fff; }
+  .compare-slide { padding: 70px 120px 80px; }
+  .compare-slide h2 { text-align: center; margin-bottom: 36px; }
+
+  /* ── 講師の体験談（差し替え用の枠） ── */
+  .placeholder {
+    flex: 1; border: 4px dashed #c4c9d2; border-radius: 20px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    color: var(--sub); text-align: center; gap: 16px;
+  }
+  .placeholder p { font-size: 40px; }
+
+  /* 写真の出典 */
+  .credit-slide { padding: 80px 120px; }
+  .credit-slide h2 { font-size: 40px; margin-bottom: 28px; }
+  .credit-list { columns: 3; column-gap: 48px; font-size: 20px; line-height: 1.9; color: var(--sub); }
+
+  .hint {
+    position: fixed; left: 16px; bottom: 12px;
+    font-size: 13px; color: #9aa3ae;
+  }
+
+  .hint a { color: #9aa3ae; }
+
+  /* ── クリックで1かたまりずつ出す文字：薄い状態から濃くなり、ふわっと浮き上がる ── */
+  .frag { opacity: 0; }
+  .frag.on { animation: pop .8s cubic-bezier(.2, .9, .3, 1.25) both; }
+  .frag.on.instant { animation: none; opacity: 1; }
+  @keyframes pop {
+    0%   { opacity: 0;  transform: translateY(40px) scale(.9); filter: blur(6px); }
+    55%  { opacity: 1;  filter: blur(0); }
+    100% { opacity: 1;  transform: none; }
+  }
+
+  /* ── 指している場所が青く光るポインター ── */
+  #glow {
+    position: fixed; left: 0; top: 0; width: 110px; height: 110px;
+    margin: -55px 0 0 -55px; border-radius: 50%;
+    pointer-events: none; z-index: 1000;
+    background: radial-gradient(circle,
+      rgba(80,150,255,.95) 0%, rgba(31,111,235,.6) 14%,
+      rgba(31,111,235,.28) 38%, rgba(31,111,235,0) 70%);
+    opacity: 0; transition: opacity .25s;
+  }
+  #glow.show { opacity: 1; }
+
+  @media print {
+    @page { size: 1600px 900px; margin: 0; }
+    html, body { background: #fff; overflow: visible; height: auto; }
+    .stage { position: static; transform: none !important; }
+    .slide { display: flex !important; page-break-after: always; }
+    .hint, #glow { display: none; }
+    .frag { opacity: 1 !important; animation: none !important; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* 提出用：参加者向けの待機スライド・作業メモ・ページ番号は出さない */
+    .slide.waiting { display: none !important; }
+    .placeholder p:last-child { display: none; }
+    .slide::after { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+
+  <!-- 開始前の待機スライド：4つのお願い＋BGM -->
+  <section class="slide waiting">
+    <p class="w-lead">まもなく始まります</p>
+    <h2>はじまる前に、<span class="accent">4つのお願い</span></h2>
+    <div class="asks">
+      <div class="ask"><span class="ico">📷</span><div><p class="t">できればお顔出しを</p><p class="d">表情が見えると、話しやすくなります</p></div></div>
+      <div class="ask"><span class="ico">🪪</span><div><p class="t">お名前は申込時のお名前に</p><p class="d">出欠の確認に使います</p></div></div>
+      <div class="ask"><span class="ico">👂</span><div><p class="t">顔出しできない方は<br>お名前の前に耳マークを</p><p class="d">例：👂 山田太郎</p></div></div>
+      <div class="ask"><span class="ico">👏</span><div><p class="t">あたたかいリアクションを</p><p class="d">うなずき・拍手・チャット大歓迎です</p></div></div>
+    </div>
+
+    <div class="bgm" id="bgm">
+      <span class="bgm-label">♪ BGM</span>
+      <button class="trk on" data-src="bgm/acoustic35.mp3">明るい</button>
+      <button class="trk" data-src="bgm/acoustic32.mp3">さわやか</button>
+      <button class="trk" data-src="bgm/acoustic41.mp3">おしゃれ</button>
+      <button class="play" id="bgmPlay">▶ 再生</button>
+      <span class="vol">
+        <button id="volDown">－</button>
+        <input type="range" id="vol" min="0" max="100" step="1" value="30">
+        <button id="volUp">＋</button>
+        <span id="volNum">30%</span>
+      </span>
+    </div>
+    <p class="bgm-credit">BGM：魔王魂</p>
+  </section>
+
+  <!-- 表紙 -->
+  <section class="slide cover">
+    <div class="cover-text">
+      <h1>頼る力</h1>
+      <p class="sub" style="margin-top:28px;">一人で抱えない働き方</p>
+      <p style="margin-top:80px; font-size:38px; font-weight:700;">岡崎かつひろ</p>
+    </div>
+    <img src="images/cover.png" alt="">
+  </section>
+
+  <!-- 講師プロフィール -->
+  <section class="slide profile">
+    <div class="photos">
+      <img class="main" src="images/profile.jpg" alt="岡崎かつひろ">
+      <figure class="bar">
+        <img src="images/bartender.jpg" alt="バーテンダー時代の岡崎かつひろ">
+        <figcaption>飲食店時代</figcaption>
+      </figure>
+    </div>
+    <div class="txt">
+      <p class="role">作家・講演家</p>
+      <p class="name">岡崎かつひろ</p>
+      <ul>
+        <li>ソフトバンクに入社</li>
+        <li>飲食店を経営</li>
+        <li>いまは執筆と講演</li>
+        <li>著書<strong>13冊</strong></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 著書 -->
+  <section class="slide books">
+    <h2>著書</h2>
+    <div class="book-layout">
+      <!-- 大きく見せる2冊 -->
+      <div class="featured">
+        <figure>
+          <span class="badge">新刊</span>
+          <img src="images/books/13.jpg" alt="要領のいい人が最初に考えること">
+        </figure>
+        <figure>
+          <span class="badge best">いちばん人気</span>
+          <img src="images/books/12.jpg" alt="いつも機嫌よくいられる本">
+        </figure>
+      </div>
+      <!-- そのほかの11冊 -->
+      <div class="others">
+        <img src="images/books/01.jpg" alt=""><img src="images/books/02.jpg" alt=""><img src="images/books/03.jpg" alt=""><img src="images/books/04.jpg" alt="">
+        <img src="images/books/05.jpg" alt=""><img src="images/books/06.jpg" alt=""><img src="images/books/07.jpg" alt=""><img src="images/books/08.jpg" alt="">
+        <img src="images/books/09.jpg" alt=""><img src="images/books/10.jpg" alt=""><img src="images/books/11.jpg" alt="">
+      </div>
+    </div>
+  </section>
+
+  <!-- ■ オープニング -->
+  <section class="slide full">
+    <img src="images/q_alone.jpg" alt="">
+    <p class="msg">最後に「助けて」と<br>言ったのは、いつ？</p>
+  </section>
+
+  <section class="slide full light">
+    <img src="images/theme.jpg" alt="">
+    <p class="sub" style="font-size:36px;">今日のテーマ</p>
+    <p class="msg" style="font-size:120px;">頼る力</p>
+  </section>
+
+  <!-- ■ 1. 「頼る」への思い込み -->
+  <section class="slide section">
+    <img src="images/sec1.jpg" alt="">
+    <p class="label">1</p>
+    <h1>「頼る」への<br>思い込み</h1>
+  </section>
+
+  <section class="slide split">
+    <img src="images/hesitate.jpg" alt="">
+    <div class="txt">
+      <p class="msg">頼るのは<br>弱い？<br>甘え？<br>迷惑？</p>
+    </div>
+  </section>
+
+  <section class="slide split rev">
+    <img src="images/help_cowork.jpg" alt="">
+    <div class="txt">
+      <span class="tag">逆の立場で</span>
+      <p class="msg">頼られたとき<br>迷惑でしたか？</p>
+    </div>
+  </section>
+
+  <section class="slide full">
+    <img src="images/happy.jpg" alt="">
+    <p class="msg">むしろ、うれしかった</p>
+  </section>
+
+  <section class="slide compare-slide">
+    <h2>揺れに強いのは？</h2>
+    <div class="compare">
+      <figure>
+        <img src="images/pillar.jpg" alt="">
+        <figcaption>1本の柱</figcaption>
+      </figure>
+      <figure class="good">
+        <img src="images/colonnade.jpg" alt="">
+        <figcaption>何本もの柱</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>講師の体験</h2>
+    <div class="placeholder">
+      <p>頼れずに一人で抱えて苦しかった経験</p>
+      <p style="font-size:28px;">（ここにご自身の写真と話を入れる）</p>
+    </div>
+  </section>
+
+  <!-- ■ 2. なぜ中堅ほど頼れないのか -->
+  <section class="slide section">
+    <img src="images/sec2.jpg" alt="">
+    <p class="label">2</p>
+    <h1>なぜ中堅ほど<br>頼れないのか</h1>
+  </section>
+
+  <section class="slide full">
+    <img src="images/sandwich.jpg" alt="">
+    <p class="msg">上と下に、はさまれる</p>
+  </section>
+
+  <section class="slide split">
+    <img src="images/r1.jpg" alt="">
+    <div class="txt">
+      <span class="tag">理由 1</span>
+      <p class="msg">「できない人」と<br>思われそう</p>
+    </div>
+  </section>
+
+  <section class="slide split">
+    <img src="images/r2.jpg" alt="">
+    <div class="txt">
+      <span class="tag">理由 2</span>
+      <p class="msg">自分でやった<br>ほうが早い</p>
+    </div>
+  </section>
+
+  <section class="slide split">
+    <img src="images/r3.jpg" alt="">
+    <div class="txt">
+      <span class="tag">理由 3</span>
+      <p class="msg">評価が<br>下がりそう</p>
+    </div>
+  </section>
+
+  <section class="slide split rev">
+    <img src="images/work.jpg" alt="">
+    <div class="txt">
+      <span class="tag">ワーク 1｜5分</span>
+      <p class="msg">一人で抱えて<br>いるものを<br>3つ書く</p>
+    </div>
+  </section>
+
+  <!-- ■ 3. 部下に頼る -->
+  <section class="slide section">
+    <img src="images/sec3.jpg" alt="">
+    <p class="label">3</p>
+    <h1>部下に頼る</h1>
+  </section>
+
+  <section class="slide full">
+    <img src="images/stage.jpg" alt="">
+    <p class="small">頼ることは</p>
+    <p class="msg">活躍の場を渡すこと</p>
+  </section>
+
+  <section class="slide compare-slide">
+    <h2>部下が動きやすいのは？</h2>
+    <div class="compare">
+      <figure>
+        <img src="images/solo.jpg" alt="">
+        <figcaption>全部できる上司</figcaption>
+      </figure>
+      <figure class="good">
+        <img src="images/delegate.jpg" alt="">
+        <figcaption>頼ってくれる上司</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="slide split">
+    <img src="images/t1.jpg" alt="">
+    <div class="txt">
+      <span class="tag">コツ 1</span>
+      <p class="msg">目的だけ伝えて<br>やり方は任せる</p>
+    </div>
+  </section>
+
+  <section class="slide split">
+    <img src="images/t2.jpg" alt="">
+    <div class="txt">
+      <span class="tag">コツ 2</span>
+      <p class="msg">苦手を<br>先に打ち明ける</p>
+    </div>
+  </section>
+
+  <section class="slide split">
+    <img src="images/t3.jpg" alt="">
+    <div class="txt">
+      <span class="tag">コツ 3</span>
+      <p class="msg">「ありがとう」を<br>言葉にする</p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>講師の体験</h2>
+    <div class="placeholder">
+      <p>部下に頼ってうまくいった／失敗した話</p>
+      <p style="font-size:28px;">（ここにご自身の写真と話を入れる）</p>
+    </div>
+  </section>
+
+  <!-- ■ 4. 上司に頼る -->
+  <section class="slide section">
+    <img src="images/oneonone.jpg" alt="">
+    <p class="label">4</p>
+    <h1>上司に頼る</h1>
+  </section>
+
+  <section class="slide full">
+    <img src="images/sec4.jpg" alt="">
+    <p class="small">上司は、困っていることを</p>
+    <p class="msg">知らないと<br>助けようがない</p>
+  </section>
+
+  <section class="slide split">
+    <img src="images/early.jpg" alt="">
+    <div class="txt">
+      <span class="tag">コツ 1</span>
+      <p class="msg">悪い話ほど<br>早く伝える</p>
+    </div>
+  </section>
+
+  <section class="slide split">
+    <img src="images/options.jpg" alt="">
+    <div class="txt">
+      <span class="tag">コツ 2</span>
+      <p class="msg">選択肢を<br>持っていく</p>
+      <p class="note">「どうしましょう」ではなく<br>「A案とB案、どちらに？」</p>
+    </div>
+  </section>
+
+  <section class="slide split">
+    <img src="images/report.jpg" alt="">
+    <div class="txt">
+      <span class="tag">コツ 3</span>
+      <p class="msg">結果まで<br>報告する</p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <h2>講師の体験</h2>
+    <div class="placeholder">
+      <p>上司に早めに頼って助かった話</p>
+      <p style="font-size:28px;">（ここにご自身の写真と話を入れる）</p>
+    </div>
+  </section>
+
+  <section class="slide split rev">
+    <img src="images/work2.jpg" alt="">
+    <div class="txt">
+      <span class="tag">ワーク 2｜10分</span>
+      <p class="msg">誰に<br>何を頼む？</p>
+      <p class="note">1つ選んで<br>明日やることを決める</p>
+    </div>
+  </section>
+
+  <!-- ■ まとめ -->
+  <section class="slide section">
+    <img src="images/sec5.jpg" alt="">
+    <p class="label">まとめ</p>
+    <h1>頼る力とは</h1>
+  </section>
+
+  <section class="slide full center">
+    <img src="images/concl.jpg" alt="">
+    <p class="msg">頼る力は<br>弱さではなく、仕事の技術</p>
+    <p class="after">頼れる人のまわりには、人が集まる</p>
+  </section>
+
+  <section class="slide full">
+    <img src="images/tomorrow.jpg" alt="">
+    <p class="msg">明日、「助けて」と<br>言ってみよう</p>
+  </section>
+
+  <section class="slide full center">
+    <img src="images/qa.jpg" alt="">
+    <p class="msg">質疑応答</p>
+    <p class="after">ありがとうございました</p>
+  </section>
+
+  <!-- 写真の出典 -->
+  <section class="slide credit-slide">
+    <h2>写真：Unsplash</h2>
+    <div class="credit-list">
+      Vitaly Gariev<br>Sebastian Dumitru<br>abdullah ali<br>Robiul Islam Pailot<br>Brooke Cagle<br>Windows<br>Kristina Kutleša<br>Raymond Petrik<br>Robert Stump<br>Štefan Štefančík<br>Mapbox<br>Aaron Burden<br>Gatot Adri<br>Kvalifik<br>LinkedIn Sales Solutions<br>Redd Francisco<br>Moritz Kindler<br>Jens Lelie<br>Radission US<br>Patrick Perkins<br>Tadej Skofic<br>Rineshkumar Ghirao<br>Devin Avery<br>Elissa Garcia
+    </div>
+  </section>
+
+</div>
+
+<div class="hint">→ / スペース / クリック：次へ　← ：戻る　｜　<a href="講演資料_頼る力_岡崎かつひろ.pdf" download onclick="event.stopPropagation()">PDFをダウンロード</a></div>
+<div id="glow"></div>
+
+<script>
+  const stage = document.getElementById('stage');
+  const slides = [...document.querySelectorAll('.slide')];
+  slides.forEach((s, i) => s.dataset.no = (i + 1) + ' / ' + slides.length);
+
+  // ── 文字を「意味のかたまり」ごとに順番づけする（写真・イラストは対象外＝出しっぱなし）──
+  // steps[i] = [[1回目のクリックで出す要素...], [2回目...], ...]
+  const steps = slides.map(s => {
+    const q = sel => [...s.querySelectorAll(sel)];
+    const groups = [];
+    const add = els => { els = els.filter(Boolean); if (els.length) groups.push(els); };
+
+    if (s.classList.contains('waiting') || s.classList.contains('cover') || s.classList.contains('credit-slide') || s.classList.contains('books')) return groups;
+
+    if (s.classList.contains('profile')) {
+      add(q('.role, .name'));
+      q('li').forEach(li => add([li]));
+    } else if (s.classList.contains('section')) {
+      add(q('.label, h1'));
+    } else if (s.classList.contains('split')) {
+      add(q('.tag, .msg'));
+      add(q('.note'));
+    } else if (s.classList.contains('full')) {
+      add(q('.small, .sub, .msg'));
+      add(q('.after'));
+    } else if (s.classList.contains('compare-slide')) {
+      add(q('h2'));
+      q('figcaption').forEach(c => add([c]));
+    } else {
+      add(q('h2'));
+      add(q('.placeholder'));
+    }
+    groups.flat().forEach(el => el.classList.add('frag'));
+    return groups;
+  });
+
+  let cur = Math.min(Math.max(parseInt(location.hash.slice(1)) - 1 || 0, 0), slides.length - 1);
+  let step = 0;   // 今のスライドで何かたまり出したか
+
+  function setStep(n, animate) {
+    step = n;
+    steps[cur].forEach((g, k) => g.forEach(el => {
+      el.classList.toggle('on', k < n);
+      el.classList.toggle('instant', k < n && !(animate && k === n - 1));
+    }));
+  }
+
+  // ── BGM（待機スライドだけで流す）──
+  const audio = new Audio(document.querySelector('.trk.on').dataset.src);
+  audio.loop = true;
+  const vol = document.getElementById('vol');
+  const volNum = document.getElementById('volNum');
+  const playBtn = document.getElementById('bgmPlay');
+  let fadeTimer = null;
+
+  function setVol(v) {
+    v = Math.min(100, Math.max(0, Math.round(v)));
+    vol.value = v; volNum.textContent = v + '%';
+    audio.volume = v / 100;
+  }
+  function updatePlayBtn() { playBtn.textContent = audio.paused ? '▶ 再生' : '❚❚ 停止'; }
+  function play() { clearInterval(fadeTimer); setVol(vol.value); audio.play(); updatePlayBtn(); }
+  function stopWithFade() {   // スライドを進めたら、ゆっくり小さくして止める
+    if (audio.paused) return;
+    clearInterval(fadeTimer);
+    fadeTimer = setInterval(() => {
+      audio.volume = Math.max(0, audio.volume - 0.02);
+      if (audio.volume <= 0) { clearInterval(fadeTimer); audio.pause(); updatePlayBtn(); }
+    }, 60);
+  }
+
+  vol.addEventListener('input', () => setVol(vol.value));
+  document.getElementById('volDown').addEventListener('click', () => setVol(+vol.value - 5));
+  document.getElementById('volUp').addEventListener('click', () => setVol(+vol.value + 5));
+  playBtn.addEventListener('click', () => audio.paused ? play() : (audio.pause(), updatePlayBtn()));
+  document.querySelectorAll('.trk').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.trk').forEach(x => x.classList.toggle('on', x === b));
+    const playing = !audio.paused;
+    audio.src = b.dataset.src;
+    if (playing) play();
+  }));
+  // BGMの操作パネルでのクリック・キー操作では、スライドを進めない
+  const bgmPanel = document.getElementById('bgm');
+  ['click', 'keydown'].forEach(ev => bgmPanel.addEventListener(ev, e => e.stopPropagation()));
+  // 操作後はボタンから選択を外し、矢印キー・スペースでそのままスライドを進められるようにする
+  bgmPanel.addEventListener('click', e => { if (e.target.tagName === 'BUTTON') e.target.blur(); });
+  vol.addEventListener('change', () => vol.blur());
+  setVol(vol.value);
+
+  function show(i, atEnd) {
+    cur = Math.min(Math.max(i, 0), slides.length - 1);
+    if (!slides[cur].classList.contains('waiting')) stopWithFade();
+    slides.forEach((s, j) => s.classList.toggle('active', j === cur));
+    setStep(atEnd ? steps[cur].length : 0, false);
+    history.replaceState(null, '', '#' + (cur + 1));
+  }
+
+  function next() {
+    if (step < steps[cur].length) setStep(step + 1, true);
+    else if (cur < slides.length - 1) show(cur + 1);
+  }
+  function prev() {
+    if (step > 0) setStep(step - 1, false);
+    else if (cur > 0) show(cur - 1, true);
+  }
+
+  // ── 光るポインター ──
+  const glow = document.getElementById('glow');
+  document.addEventListener('mousemove', e => {
+    glow.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+    glow.classList.add('show');
+  });
+  document.addEventListener('mouseleave', () => glow.classList.remove('show'));
+
+  function fit() {
+    const scale = Math.min(innerWidth / 1600, innerHeight / 900);
+    stage.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (['ArrowRight', 'ArrowDown', ' ', 'PageDown', 'Enter'].includes(e.key)) { e.preventDefault(); next(); }
+    if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); prev(); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1, true);
+  });
+  document.addEventListener('click', next);
+  addEventListener('resize', fit);
+
+  fit();
+  show(cur);
+</script>
+</body>
+</html>
